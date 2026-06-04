@@ -1,0 +1,5 @@
+#pragma once
+
+#define IDI_WIFIDROP_APP 101
+#define IDI_WIFIDROP_DEVICE 102
+#define IDI_WIFIDROP_EXIT 103

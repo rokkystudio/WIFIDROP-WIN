@@ -1,0 +1,22 @@
+# ninja log v7
+25	1291	8022868614550151	CMakeFiles/WiFiDrop.dir/src/server/UploadController.cpp.obj	7584f83098014f98
+1420	2868	8022868628494642	CMakeFiles/WiFiDrop.dir/src/clients/AndroidClient.cpp.obj	736795cb0f1ae7ba
+16	1282	8022868614450484	CMakeFiles/WiFiDrop.dir/src/AutoStart.cpp.obj	6dcccd4e7389d91f
+2555	4293	8022868639844363	CMakeFiles/WiFiDrop.dir/src/clients/ClientManager.cpp.obj	4c0dd1a23157d510
+1292	3773	8022868627208949	CMakeFiles/WiFiDrop.dir/src/server/DiscoveryResponder.cpp.obj	91db8ed943872b41
+8	3114	8022868614380718	CMakeFiles/WiFiDrop.dir/src/App.cpp.obj	f8221f2f4b58a1a
+21	3178	8022868614500320	CMakeFiles/WiFiDrop.dir/src/server/WifiDropServer.cpp.obj	7a7066aa12adc504
+1283	6311	8022868627129232	CMakeFiles/WiFiDrop.dir/src/server/ControlServer.cpp.obj	c87cad8879bb7f0b
+3114	4281	8022868645433260	CMakeFiles/WiFiDrop.dir/src/utils/FileName.cpp.obj	36c9b03e43aca253
+3178	4559	8022868646073812	CMakeFiles/WiFiDrop.dir/src/utils/Utf.cpp.obj	c174cba33a50305c
+12	1420	8022868614420581	CMakeFiles/WiFiDrop.dir/src/TrayIcon.cpp.obj	6ff58ae892481e20
+3773	5200	8022868652023908	CMakeFiles/WiFiDrop.dir/src/utils/Log.cpp.obj	abe496e366c2cd3e
+2868	5961	8022868642974251	CMakeFiles/WiFiDrop.dir/src/utils/DesktopFolders.cpp.obj	4158840443983ae4
+4	2554	8022868614330884	CMakeFiles/WiFiDrop.dir/src/main.cpp.obj	7d19e8ae7938dac
+6311	8253	8022868677403125	WiFiDrop.exe	334b4b1ba0da39bb
+1	15	8022868570350446	clean	d755921063b9a9f2
+23	548	8022874158768405	CMakeFiles/WiFiDrop.dir/src/WiFiDrop.rc.obj	cc2286d55dd71bd5
+17	1664	8022874158708592	CMakeFiles/WiFiDrop.dir/src/TrayIcon.cpp.obj	6ff58ae892481e20
+5	2453	8022874158598972	CMakeFiles/WiFiDrop.dir/src/main.cpp.obj	7d19e8ae7938dac
+11	3032	8022874158658760	CMakeFiles/WiFiDrop.dir/src/App.cpp.obj	f8221f2f4b58a1a
+3032	5615	8022874188872681	WiFiDrop.exe	9446b1c48e0dcf1d
