@@ -22,6 +22,7 @@ public:
     int webDavPort{0};
     std::string webDavBasePath;
     bool readOnly{false};
+    bool mountReady{false};
     std::string remoteIp;
     std::string driveLetter;
     std::wstring driveName;

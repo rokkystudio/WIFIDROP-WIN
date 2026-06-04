@@ -60,7 +60,7 @@ private:
     bool LoadResources();
 
     /// Показывает контекстное меню у системного трея.
-    void ShowContextMenu();
+    void ShowContextMenu(POINT anchorPoint, bool useAnchorPoint);
 
     /// Добавляет один текстовый пункт в контекстное меню.
     void AppendMenuItem(HMENU menuHandle, UINT commandId, const std::wstring &text, bool enabled, HBITMAP bitmapHandle) const;

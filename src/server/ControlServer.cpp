@@ -204,23 +204,28 @@ HttpResponse ControlServer::HandleConnectRequest(const HttpRequest &request) {
     client.webDavPort = ExtractJsonInt(request.body, "webDavPort", 0);
     client.webDavBasePath = ExtractJsonString(request.body, "webDavBasePath");
     client.readOnly = ExtractJsonBool(request.body, "readOnly", false);
+    client.mountReady = ExtractJsonBool(request.body, "mountReady", false);
+    const bool hasWebDavEndpoint = !client.webDavHost.empty() && client.webDavPort > 0;
+    if (!hasWebDavEndpoint) {
+        client.mountReady = false;
+    } else if (!client.mountReady) {
+        client.mountReady = true;
+    }
     client.remoteIp = request.remoteIp;
     client.driveLetter.clear();
     client.driveName = AndroidClient::BuildDriveName(client.deviceNameUtf8, client.deviceNumberUtf8);
     client.sessionState = AndroidSessionState::Pending;
 
-    if (client.webDavHost.empty() || client.webDavPort <= 0) {
-        return MakeJsonResponse(400, "Bad Request", R"({"accepted":false,"error":"Invalid WebDAV endpoint"})");
-    }
-
     clientManager_.AddClient(client);
-    Log::Info("Android client connected: " + client.clientId + " (" + client.remoteIp + ")");
+    Log::Info("Android client connected: " + client.clientId + " (" + client.remoteIp + "), webDav=" +
+              client.webDavHost + ":" + std::to_string(client.webDavPort) +
+              ", mountReady=" + std::string(client.mountReady ? "true" : "false"));
 
     std::ostringstream responseBody;
     responseBody << "{\"accepted\":true,\"clientId\":\"" << JsonEscape(client.clientId)
                  << "\",\"driveLetter\":\"\",\"driveName\":\""
                  << JsonEscape(Utf::WideToUtf8(client.driveName))
-                 << "\",\"mountReady\":false}";
+                 << "\",\"mountReady\":" << (client.mountReady ? "true" : "false") << "}";
     return MakeJsonResponse(200, "OK", responseBody.str());
 }
 

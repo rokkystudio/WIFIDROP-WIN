@@ -4,6 +4,7 @@
 #include "utils/Log.h"
 
 #include <shellapi.h>
+#include <windowsx.h>
 #include <utility>
 
 namespace {
@@ -99,11 +100,14 @@ LRESULT TrayIcon::WindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPA
             break;
     }
 
-    if (message == kTrayCallbackMessage && wParam == kTrayIconId) {
-        switch (lParam) {
+    if (message == kTrayCallbackMessage) {
+        const UINT trayEvent = LOWORD(static_cast<DWORD>(lParam));
+        switch (trayEvent) {
             case WM_CONTEXTMENU:
             case WM_RBUTTONUP:
-                ShowContextMenu();
+                ShowContextMenu(
+                    POINT{GET_X_LPARAM(wParam), GET_Y_LPARAM(wParam)},
+                    trayEvent == WM_CONTEXTMENU);
                 return 0;
             case WM_LBUTTONDBLCLK:
                 if (trayDoubleClick_) {
@@ -219,7 +223,7 @@ bool TrayIcon::LoadResources() {
     return true;
 }
 
-void TrayIcon::ShowContextMenu() {
+void TrayIcon::ShowContextMenu(POINT anchorPoint, bool useAnchorPoint) {
     HMENU menuHandle = CreatePopupMenu();
     if (!menuHandle) {
         Log::Error("CreatePopupMenu failed");
@@ -248,8 +252,10 @@ void TrayIcon::ShowContextMenu() {
     AppendMenuW(menuHandle, MF_SEPARATOR, 0, nullptr);
     AppendMenuItem(menuHandle, kMenuExit, L"Выход", true, exitMenuBitmapHandle_);
 
-    POINT cursorPosition{};
-    GetCursorPos(&cursorPosition);
+    POINT cursorPosition = anchorPoint;
+    if (!useAnchorPoint || cursorPosition.x < 0 || cursorPosition.y < 0) {
+        GetCursorPos(&cursorPosition);
+    }
     SetForegroundWindow(windowHandle_);
     TrackPopupMenu(menuHandle,
                    TPM_BOTTOMALIGN | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
@@ -258,6 +264,7 @@ void TrayIcon::ShowContextMenu() {
                    0,
                    windowHandle_,
                    nullptr);
+    PostMessageW(windowHandle_, WM_NULL, 0, 0);
     DestroyMenu(menuHandle);
 }
 
