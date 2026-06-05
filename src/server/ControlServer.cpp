@@ -3,7 +3,9 @@
 #include "Protocol.h"
 #include "utils/Log.h"
 #include "utils/Utf.h"
+#include "utils/WebDavDriveMapper.h"
 
+#include <shellapi.h>
 #include <windows.h>
 #include <ws2tcpip.h>
 
@@ -153,6 +155,22 @@ std::string GenerateClientId() {
     return value;
 }
 
+void OpenMountedDriveInExplorer(const AndroidClient &client) {
+    if (client.driveLetter.empty()) {
+        return;
+    }
+
+    const std::wstring drivePath = Utf::Utf8ToWide(client.driveLetter) + L":\\";
+    const auto result = reinterpret_cast<INT_PTR>(
+        ShellExecuteW(nullptr, L"open", drivePath.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    if (result <= 32) {
+        Log::Warn("Could not auto-open mounted drive " + client.driveLetter + " in Explorer. ShellExecuteW=" +
+                  std::to_string(result));
+    } else {
+        Log::Info("Mounted drive auto-opened in Explorer: " + client.driveLetter);
+    }
+}
+
 HttpResponse MakeJsonResponse(int statusCode, std::string reasonPhrase, std::string body) {
     HttpResponse response;
     response.statusCode = statusCode;
@@ -212,20 +230,42 @@ HttpResponse ControlServer::HandleConnectRequest(const HttpRequest &request) {
         client.mountReady = true;
     }
     client.remoteIp = request.remoteIp;
-    client.driveLetter.clear();
     client.driveName = AndroidClient::BuildDriveName(client.deviceNameUtf8, client.deviceNumberUtf8);
     client.sessionState = AndroidSessionState::Pending;
+    if (client.mountReady) {
+        const auto mountResult = WebDavDriveMapper::Mount(client);
+        if (mountResult.driveLetter.has_value()) {
+            client.driveLetter = *mountResult.driveLetter;
+            client.mountError.clear();
+        } else {
+            client.driveLetter.clear();
+            if (client.mountError.empty()) {
+                client.mountError = mountResult.errorMessage;
+            }
+        }
+    } else {
+        client.driveLetter.clear();
+        if (client.mountError.empty()) {
+            client.mountError.clear();
+        }
+    }
 
     clientManager_.AddClient(client);
+    if (!client.driveLetter.empty()) {
+        OpenMountedDriveInExplorer(client);
+    }
     Log::Info("Android client connected: " + client.clientId + " (" + client.remoteIp + "), webDav=" +
               client.webDavHost + ":" + std::to_string(client.webDavPort) +
-              ", mountReady=" + std::string(client.mountReady ? "true" : "false"));
+              ", mountReady=" + std::string(client.mountReady ? "true" : "false") +
+              ", driveLetter=" + (client.driveLetter.empty() ? std::string("<none>") : client.driveLetter) +
+              ", mountError=" + (client.mountError.empty() ? std::string("<none>") : client.mountError));
 
     std::ostringstream responseBody;
     responseBody << "{\"accepted\":true,\"clientId\":\"" << JsonEscape(client.clientId)
-                 << "\",\"driveLetter\":\"\",\"driveName\":\""
+                 << "\",\"driveLetter\":\"" << JsonEscape(client.driveLetter) << "\",\"driveName\":\""
                  << JsonEscape(Utf::WideToUtf8(client.driveName))
-                 << "\",\"mountReady\":" << (client.mountReady ? "true" : "false") << "}";
+                 << "\",\"mountReady\":" << (client.mountReady ? "true" : "false")
+                 << ",\"mountError\":\"" << JsonEscape(client.mountError) << "\"}";
     return MakeJsonResponse(200, "OK", responseBody.str());
 }
 
@@ -253,7 +293,9 @@ ControlRequestDisposition ControlServer::HandleSessionRequest(const HttpRequest 
         "Cache-Control: no-cache\r\n"
         "Connection: keep-alive\r\n\r\n";
     if (!SendAll(clientSocket, headers)) {
-        clientManager_.RemoveClient(clientId);
+        if (const auto removedClient = clientManager_.RemoveClient(clientId); removedClient.has_value()) {
+            WebDavDriveMapper::Unmount(*removedClient);
+        }
         closesocket(clientSocket);
         return ControlRequestDisposition::ResponseSentDirectly;
     }
@@ -278,7 +320,9 @@ ControlRequestDisposition ControlServer::HandleSessionRequest(const HttpRequest 
         }
     }
 
-    clientManager_.RemoveClient(clientId);
+    if (const auto removedClient = clientManager_.RemoveClient(clientId); removedClient.has_value()) {
+        WebDavDriveMapper::Unmount(*removedClient);
+    }
     Log::Info("Android session closed: " + clientId);
     shutdown(clientSocket, SD_BOTH);
     closesocket(clientSocket);

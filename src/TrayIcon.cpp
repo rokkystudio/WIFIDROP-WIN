@@ -176,6 +176,23 @@ bool TrayIcon::AddNotifyIcon(const std::wstring &tooltip) {
     return true;
 }
 
+void TrayIcon::ShowNotification(const std::wstring &title, const std::wstring &message, DWORD infoFlags) const {
+    if (!windowHandle_) {
+        return;
+    }
+
+    NOTIFYICONDATAW notifyIconData{};
+    notifyIconData.cbSize = sizeof(notifyIconData);
+    notifyIconData.hWnd = windowHandle_;
+    notifyIconData.uID = kTrayIconId;
+    notifyIconData.uFlags = NIF_INFO;
+    notifyIconData.dwInfoFlags = infoFlags;
+    notifyIconData.uTimeout = 5000;
+    wcsncpy_s(notifyIconData.szInfoTitle, title.c_str(), _TRUNCATE);
+    wcsncpy_s(notifyIconData.szInfo, message.c_str(), _TRUNCATE);
+    Shell_NotifyIconW(NIM_MODIFY, &notifyIconData);
+}
+
 bool TrayIcon::LoadResources() {
     trayIconHandle_ = static_cast<HICON>(LoadImageW(
         instanceHandle_,

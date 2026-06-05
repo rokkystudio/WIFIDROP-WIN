@@ -33,9 +33,16 @@ bool ClientManager::Contains(const std::string &clientId) const {
     return clients_.contains(clientId);
 }
 
-bool ClientManager::RemoveClient(const std::string &clientId) {
+std::optional<AndroidClient> ClientManager::RemoveClient(const std::string &clientId) {
     std::lock_guard lock(mutex_);
-    return clients_.erase(clientId) > 0;
+    const auto iterator = clients_.find(clientId);
+    if (iterator == clients_.end()) {
+        return std::nullopt;
+    }
+
+    AndroidClient removedClient = iterator->second;
+    clients_.erase(iterator);
+    return removedClient;
 }
 
 std::vector<AndroidClient> ClientManager::ListClients() const {
@@ -65,7 +72,13 @@ std::vector<AndroidClient> ClientManager::RemoveInactive(std::chrono::steady_clo
     return removedClients;
 }
 
-void ClientManager::Clear() {
+std::vector<AndroidClient> ClientManager::Clear() {
     std::lock_guard lock(mutex_);
+    std::vector<AndroidClient> removedClients;
+    removedClients.reserve(clients_.size());
+    for (const auto &[clientId, client] : clients_) {
+        removedClients.push_back(client);
+    }
     clients_.clear();
+    return removedClients;
 }

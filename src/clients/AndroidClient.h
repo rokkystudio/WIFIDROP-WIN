@@ -25,6 +25,7 @@ public:
     bool mountReady{false};
     std::string remoteIp;
     std::string driveLetter;
+    std::string mountError;
     std::wstring driveName;
     AndroidSessionState sessionState{AndroidSessionState::Pending};
     std::chrono::steady_clock::time_point lastActivity{std::chrono::steady_clock::now()};

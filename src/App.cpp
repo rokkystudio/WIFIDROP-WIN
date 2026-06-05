@@ -45,12 +45,63 @@ std::wstring BuildClientOpenPath(const AndroidClient &client) {
     uncPath += Utf::Utf8ToWide(client.webDavHost);
     uncPath += L"@";
     uncPath += std::to_wstring(client.webDavPort);
-    uncPath += L"\\DavWWWRoot";
+    uncPath += L"\\DavWWWRoot\\";
     if (!basePath.empty()) {
-        uncPath += L"\\" + basePath;
+        uncPath += basePath;
+        if (uncPath.back() != L'\\') {
+            uncPath += L'\\';
+        }
     }
 
     return uncPath;
+}
+
+std::wstring BuildClientBrowserUrl(const AndroidClient &client) {
+    if (client.webDavHost.empty() || client.webDavPort <= 0) {
+        return L"";
+    }
+
+    std::wstring url = L"http://";
+    url += Utf::Utf8ToWide(client.webDavHost);
+    url += L":";
+    url += std::to_wstring(client.webDavPort);
+
+    std::wstring basePath = Utf::Utf8ToWide(client.webDavBasePath);
+    if (basePath.empty()) {
+        url += L"/";
+        return url;
+    }
+
+    if (basePath.front() != L'/') {
+        url += L"/";
+    }
+    url += basePath;
+    if (url.back() != L'/') {
+        url += L"/";
+    }
+    return url;
+}
+
+bool TryOpenPath(const std::wstring &path, const char *logContext) {
+    Log::Info(std::string("Opening path [") + logContext + "]: " + Utf::WideToUtf8(path));
+    const auto result = reinterpret_cast<INT_PTR>(
+        ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    if (result > 32) {
+        return true;
+    }
+
+    Log::Error(std::string("ShellExecuteW failed for ") + logContext + " with code " + std::to_string(result));
+    return false;
+}
+
+DWORD NotificationFlagsFromMessageBoxFlags(UINT flags) {
+    if ((flags & MB_ICONERROR) == MB_ICONERROR) {
+        return NIIF_ERROR;
+    }
+    if ((flags & MB_ICONWARNING) == MB_ICONWARNING) {
+        return NIIF_WARNING;
+    }
+    return NIIF_INFO;
 }
 
 std::wstring BuildConnectedDevicesText(const std::vector<AndroidClient> &clients) {
@@ -64,19 +115,21 @@ std::wstring BuildConnectedDevicesText(const std::vector<AndroidClient> &clients
         stream << L"Имя: " << client.driveName << L"\r\n";
         stream << L"Client ID: " << Utf::Utf8ToWide(client.clientId) << L"\r\n";
         stream << L"IP: " << Utf::Utf8ToWide(client.remoteIp) << L"\r\n";
-        stream << L"WebDAV: " << Utf::Utf8ToWide(client.webDavHost) << L":" << client.webDavPort << L"\r\n";
-        stream << L"WebDAV готов: " << (client.mountReady ? L"да" : L"нет") << L"\r\n";
+        stream << L"Android endpoint: " << Utf::Utf8ToWide(client.webDavHost) << L":" << client.webDavPort << L"\r\n";
+        stream << L"Endpoint готов: " << (client.mountReady ? L"да" : L"нет") << L"\r\n";
         stream << L"Буква диска: ";
         if (client.driveLetter.empty()) {
             stream << L"не назначена";
         } else {
             stream << Utf::Utf8ToWide(client.driveLetter);
         }
+        if (!client.mountError.empty()) {
+            stream << L"\r\nПричина mount error: " << Utf::Utf8ToWide(client.mountError);
+        }
         stream << L"\r\n\r\n";
     }
 
-    stream << L"Открытие из трея использует смонтированный диск, если он есть, "
-              L"или прямой WebDAV-путь устройства.";
+    stream << L"Открытие из трея использует смонтированный диск устройства.";
     return stream.str();
 }
 
@@ -104,7 +157,12 @@ int App::Run(HINSTANCE instanceHandle, int) {
 bool App::Initialize(HINSTANCE instanceHandle) {
     Log::Initialize();
     Log::Info("WiFiDrop starting");
+#if WIFIDROP_ENABLE_WINFSP
+    Log::Info("Drive backend: WinFsp");
+#else
+    Log::Info("Drive backend: WebDAV redirector");
     WebClientService::EnsureRunning();
+#endif
 
     autoStart_ = std::make_unique<AutoStart>();
     clientManager_ = std::make_unique<ClientManager>();
@@ -191,38 +249,59 @@ void App::OpenClientDrive(const std::string &clientId) {
         if (client.driveLetter.empty()) {
             if (!client.mountReady) {
                 ShowMessage(L"WiFiDrop",
-                            L"Android-устройство подключено, но WebDAV-сервер на нём пока не запущен.",
+                            L"Android-устройство подключено, но файловый endpoint на нём пока не запущен.",
                             MB_OK | MB_ICONINFORMATION);
                 return;
             }
 
+#if WIFIDROP_ENABLE_WINFSP
+            ShowMessage(L"WiFiDrop",
+                        !client.mountError.empty()
+                            ? Utf::Utf8ToWide(client.mountError)
+                            : L"Не удалось смонтировать WinFsp-диск устройства.",
+                        MB_OK | MB_ICONERROR);
+            return;
+#else
             const bool webClientReady = WebClientService::EnsureRunning();
             const std::wstring webDavPath = BuildClientOpenPath(client);
-            if (webDavPath.empty()) {
+            const std::wstring browserUrl = BuildClientBrowserUrl(client);
+            if (webDavPath.empty() && browserUrl.empty()) {
                 ShowMessage(L"WiFiDrop",
                             L"Устройство подключено, но для него недоступен путь открытия.",
                             MB_OK | MB_ICONINFORMATION);
                 return;
             }
 
-            const auto webDavResult = reinterpret_cast<INT_PTR>(
-                ShellExecuteW(nullptr, L"open", webDavPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
-            if (webDavResult <= 32) {
-                Log::Error("ShellExecuteW failed for client WebDAV path");
-                ShowMessage(L"WiFiDrop",
-                            webClientReady
-                                ? L"Не удалось открыть WebDAV-путь устройства."
-                                : L"Не удалось запустить службу WebClient и открыть WebDAV-путь устройства.",
-                            MB_OK | MB_ICONERROR);
+            if (!webDavPath.empty() && TryOpenPath(webDavPath, "client WebDAV path")) {
+                return;
             }
+
+            if (!browserUrl.empty() && TryOpenPath(browserUrl, "client browser URL")) {
+                if (!client.mountError.empty()) {
+                    ShowMessage(L"WiFiDrop",
+                                Utf::Utf8ToWide(client.mountError),
+                                MB_OK | MB_ICONWARNING);
+                } else if (!webClientReady) {
+                    ShowMessage(L"WiFiDrop",
+                                L"WebClient не удалось запустить из приложения. Устройство открыто через браузерный fallback.",
+                                MB_OK | MB_ICONINFORMATION);
+                }
+                return;
+            }
+
+            ShowMessage(L"WiFiDrop",
+                        !client.mountError.empty()
+                            ? Utf::Utf8ToWide(client.mountError)
+                            : webClientReady
+                            ? L"Не удалось открыть устройство ни через WebDAV, ни через браузер."
+                            : L"Не удалось запустить службу WebClient и открыть устройство в браузере.",
+                        MB_OK | MB_ICONERROR);
             return;
+#endif
         }
 
         const std::wstring rootPath = BuildClientOpenPath(client);
-        const auto result = reinterpret_cast<INT_PTR>(
-            ShellExecuteW(nullptr, L"open", rootPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
-        if (result <= 32) {
-            Log::Error("ShellExecuteW failed for client drive");
+        if (!TryOpenPath(rootPath, "client drive")) {
             ShowMessage(L"WiFiDrop", L"Не удалось открыть смонтированный диск устройства.", MB_OK | MB_ICONERROR);
         }
         return;
@@ -259,6 +338,10 @@ void App::HandleTrayDoubleClick() {
 }
 
 void App::ShowMessage(const std::wstring &title, const std::wstring &message, UINT flags) const {
+    if (trayIcon_) {
+        trayIcon_->ShowNotification(title, message, NotificationFlagsFromMessageBoxFlags(flags));
+        return;
+    }
     MessageBoxW(nullptr, message.c_str(), title.c_str(), flags);
 }
 

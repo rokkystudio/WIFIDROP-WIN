@@ -38,6 +38,9 @@ public:
     /// Удаляет иконку из трея и уничтожает скрытое окно.
     void Shutdown();
 
+    /// Показывает уведомление через системный трей.
+    void ShowNotification(const std::wstring &title, const std::wstring &message, DWORD infoFlags) const;
+
 private:
     static constexpr UINT kTrayCallbackMessage = WM_APP + 1;
     static constexpr UINT_PTR kTrayIconId = 1;

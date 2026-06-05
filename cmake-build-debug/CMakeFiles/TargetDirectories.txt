@@ -1,3 +1,0 @@
-D:/PROJECTS/WIFIDROP-WIN/cmake-build-debug/CMakeFiles/WiFiDrop.dir
-D:/PROJECTS/WIFIDROP-WIN/cmake-build-debug/CMakeFiles/edit_cache.dir
-D:/PROJECTS/WIFIDROP-WIN/cmake-build-debug/CMakeFiles/rebuild_cache.dir

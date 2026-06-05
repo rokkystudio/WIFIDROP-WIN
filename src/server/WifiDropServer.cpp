@@ -2,6 +2,7 @@
 
 #include "Protocol.h"
 #include "utils/Log.h"
+#include "utils/WebDavDriveMapper.h"
 
 #include <ws2tcpip.h>
 
@@ -248,7 +249,10 @@ void WifiDropServer::Stop() {
         maintenanceThread_.join();
     }
 
-    clientManager_.Clear();
+    const auto removedClients = clientManager_.Clear();
+    for (const auto &client : removedClients) {
+        WebDavDriveMapper::Unmount(client);
+    }
     WSACleanup();
 }
 
@@ -313,6 +317,7 @@ void WifiDropServer::MaintenanceLoop() {
         std::this_thread::sleep_for(Protocol::kControlHeartbeatInterval);
         const auto removedClients = clientManager_.RemoveInactive(Protocol::kControlDisconnectTimeout);
         for (const auto &client : removedClients) {
+            WebDavDriveMapper::Unmount(client);
             Log::Info("Client disconnected by timeout: " + client.clientId);
         }
     }

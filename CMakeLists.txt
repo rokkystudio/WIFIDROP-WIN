@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.25)
 project(WiFiDrop LANGUAGES CXX)
 
-option(WIFIDROP_ENABLE_WINFSP "Enable WinFsp integration" OFF)
+set(WIFIDROP_WINFSP_DEFAULT_ROOT "C:/Program Files (x86)/WinFsp")
+set(WIFIDROP_WINFSP_ROOT "${WIFIDROP_WINFSP_DEFAULT_ROOT}" CACHE PATH "Path to WinFsp installation")
+if (EXISTS "${WIFIDROP_WINFSP_ROOT}/inc/winfsp/winfsp.h")
+    set(WIFIDROP_ENABLE_WINFSP_DEFAULT ON)
+    set(WIFIDROP_ENABLE_WINFSP ON CACHE BOOL "Enable WinFsp integration" FORCE)
+else ()
+    set(WIFIDROP_ENABLE_WINFSP_DEFAULT OFF)
+    set(WIFIDROP_ENABLE_WINFSP OFF CACHE BOOL "Enable WinFsp integration" FORCE)
+endif ()
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 set(WIFIDROP_SOURCES
@@ -38,6 +46,12 @@ set(WIFIDROP_SOURCES
         src/utils/Log.cpp
         src/utils/WebClientService.h
         src/utils/WebClientService.cpp
+        src/utils/AndroidFsHttpClient.h
+        src/utils/AndroidFsHttpClient.cpp
+        src/utils/WebDavDriveMapper.h
+        src/utils/WebDavDriveMapper.cpp
+        src/utils/WinFspDriveHost.h
+        src/utils/WinFspDriveHost.cpp
 )
 
 add_executable(WiFiDrop ${WIFIDROP_SOURCES})
@@ -63,8 +77,10 @@ target_link_libraries(WiFiDrop PRIVATE
     shell32
     user32
     advapi32
+    mpr
     shlwapi
     ole32
+    winhttp
     uuid
 )
 
@@ -83,14 +99,23 @@ if (WIFIDROP_ENABLE_WINFSP)
             ${WIFIDROP_WINFSP_ROOT}/lib
             $ENV{WIFIDROP_WINFSP_ROOT}/lib
     )
+    find_file(WINFSP_DLL winfsp-x64.dll
+        HINTS
+            ${WIFIDROP_WINFSP_ROOT}/bin
+            $ENV{WIFIDROP_WINFSP_ROOT}/bin
+    )
 
-    if (NOT WINFSP_INCLUDE_DIR OR NOT WINFSP_LIBRARY)
-        message(FATAL_ERROR "WinFsp SDK was not found. Disable WIFIDROP_ENABLE_WINFSP or set WIFIDROP_WINFSP_ROOT.")
+    if (NOT WINFSP_INCLUDE_DIR OR NOT WINFSP_LIBRARY OR NOT WINFSP_DLL)
+        message(FATAL_ERROR "WinFsp SDK/runtime was not found. Set WIFIDROP_WINFSP_ROOT to a full WinFsp installation.")
     endif ()
 
     target_include_directories(WiFiDrop PRIVATE ${WINFSP_INCLUDE_DIR})
     target_link_libraries(WiFiDrop PRIVATE ${WINFSP_LIBRARY})
     target_compile_definitions(WiFiDrop PRIVATE WIFIDROP_ENABLE_WINFSP=1)
+    add_custom_command(TARGET WiFiDrop POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WINFSP_DLL}"
+            "$<TARGET_FILE_DIR:WiFiDrop>/winfsp-x64.dll")
 else ()
     target_compile_definitions(WiFiDrop PRIVATE WIFIDROP_ENABLE_WINFSP=0)
 endif ()

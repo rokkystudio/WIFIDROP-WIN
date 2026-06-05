@@ -26,7 +26,7 @@ public:
     bool Contains(const std::string &clientId) const;
 
     /// Удаляет клиента по идентификатору.
-    bool RemoveClient(const std::string &clientId);
+    std::optional<AndroidClient> RemoveClient(const std::string &clientId);
 
     /// Возвращает все активные клиентские записи.
     std::vector<AndroidClient> ListClients() const;
@@ -35,7 +35,7 @@ public:
     std::vector<AndroidClient> RemoveInactive(std::chrono::steady_clock::duration timeout);
 
     /// Очищает все клиентские записи.
-    void Clear();
+    std::vector<AndroidClient> Clear();
 
 private:
     mutable std::mutex mutex_;
