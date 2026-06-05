@@ -3,6 +3,7 @@
 #include "AutoStart.h"
 #include "clients/AndroidClient.h"
 #include "clients/ClientManager.h"
+#include "ConnectedDevicesWindow.h"
 #include "server/WifiDropServer.h"
 #include "TrayIcon.h"
 #include "utils/DesktopFolders.h"
@@ -166,9 +167,16 @@ bool App::Initialize(HINSTANCE instanceHandle) {
 
     autoStart_ = std::make_unique<AutoStart>();
     clientManager_ = std::make_unique<ClientManager>();
-    trayIcon_ = std::make_unique<TrayIcon>();
+    connectedDevicesWindow_ = std::make_unique<ConnectedDevicesWindow>();
     server_ = std::make_unique<WifiDropServer>(*clientManager_);
 
+    if (!connectedDevicesWindow_->Initialize(instanceHandle)) {
+        Log::Error("Failed to initialize connected devices window");
+        ShowMessage(L"WiFiDrop", L"Не удалось создать окно подключенных устройств.", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    trayIcon_ = std::make_unique<TrayIcon>();
     if (!trayIcon_->Initialize(
             instanceHandle,
             L"WiFiDrop",
@@ -198,6 +206,9 @@ void App::Shutdown() {
     if (server_) {
         server_->Stop();
     }
+    if (connectedDevicesWindow_) {
+        connectedDevicesWindow_->Shutdown();
+    }
     if (trayIcon_) {
         trayIcon_->Shutdown();
     }
@@ -222,7 +233,9 @@ void App::OpenIncomingFolder() {
 
 void App::ShowConnectedDevices() {
     const auto clients = clientManager_->ListClients();
-    ShowMessage(L"Connected Devices", BuildConnectedDevicesText(clients), MB_OK | MB_ICONINFORMATION);
+    if (connectedDevicesWindow_) {
+        connectedDevicesWindow_->Show(BuildConnectedDevicesText(clients));
+    }
 }
 
 std::vector<TrayDeviceMenuItem> App::BuildTrayDeviceMenuItems() const {
@@ -334,7 +347,7 @@ void App::HandleTrayDoubleClick() {
         return;
     }
 
-    ShowConnectedDevices();
+    Log::Info("Multiple clients are connected; tray double click keeps the devices window hidden");
 }
 
 void App::ShowMessage(const std::wstring &title, const std::wstring &message, UINT flags) const {

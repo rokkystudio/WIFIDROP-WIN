@@ -16,6 +16,8 @@ set(WIFIDROP_SOURCES
         src/main.cpp
         src/App.h
         src/App.cpp
+        src/ConnectedDevicesWindow.h
+        src/ConnectedDevicesWindow.cpp
         src/TrayIcon.h
         src/TrayIcon.cpp
         src/AutoStart.h
@@ -52,6 +54,8 @@ set(WIFIDROP_SOURCES
         src/utils/WebDavDriveMapper.cpp
         src/utils/WinFspDriveHost.h
         src/utils/WinFspDriveHost.cpp
+        src/ConnectedDevicesWindow.cpp
+        src/ConnectedDevicesWindow.h
 )
 
 add_executable(WiFiDrop ${WIFIDROP_SOURCES})
@@ -69,38 +73,39 @@ endif ()
 
 if (MSVC)
     set_property(TARGET WiFiDrop PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+            MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif ()
 
 target_link_libraries(WiFiDrop PRIVATE
-    ws2_32
-    shell32
-    user32
-    advapi32
-    mpr
-    shlwapi
-    ole32
-    winhttp
-    uuid
+        ws2_32
+        shell32
+        user32
+        gdi32
+        advapi32
+        mpr
+        shlwapi
+        ole32
+        winhttp
+        uuid
 )
 
 set_target_properties(WiFiDrop PROPERTIES
-    WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>
+        WIN32_EXECUTABLE TRUE
 )
 
 if (WIFIDROP_ENABLE_WINFSP)
     find_path(WINFSP_INCLUDE_DIR winfsp/winfsp.h
-        HINTS
+            HINTS
             ${WIFIDROP_WINFSP_ROOT}/inc
             $ENV{WIFIDROP_WINFSP_ROOT}/inc
     )
     find_library(WINFSP_LIBRARY winfsp-x64
-        HINTS
+            HINTS
             ${WIFIDROP_WINFSP_ROOT}/lib
             $ENV{WIFIDROP_WINFSP_ROOT}/lib
     )
     find_file(WINFSP_DLL winfsp-x64.dll
-        HINTS
+            HINTS
             ${WIFIDROP_WINFSP_ROOT}/bin
             $ENV{WIFIDROP_WINFSP_ROOT}/bin
     )
@@ -113,7 +118,7 @@ if (WIFIDROP_ENABLE_WINFSP)
     target_link_libraries(WiFiDrop PRIVATE ${WINFSP_LIBRARY})
     target_compile_definitions(WiFiDrop PRIVATE WIFIDROP_ENABLE_WINFSP=1)
     add_custom_command(TARGET WiFiDrop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${WINFSP_DLL}"
             "$<TARGET_FILE_DIR:WiFiDrop>/winfsp-x64.dll")
 else ()

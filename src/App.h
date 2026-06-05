@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AutoStart.h"
+#include "ConnectedDevicesWindow.h"
 #include "TrayIcon.h"
 #include "clients/ClientManager.h"
 #include "server/WifiDropServer.h"
@@ -54,6 +55,7 @@ private:
     HINSTANCE instanceHandle_{nullptr};
     std::unique_ptr<AutoStart> autoStart_;
     std::unique_ptr<ClientManager> clientManager_;
+    std::unique_ptr<ConnectedDevicesWindow> connectedDevicesWindow_;
     std::unique_ptr<TrayIcon> trayIcon_;
     std::unique_ptr<WifiDropServer> server_;
 };
